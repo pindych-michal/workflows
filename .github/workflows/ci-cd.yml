@@ -1,0 +1,92 @@
+name: CI/CD Pipeline - Test & Push to GHCR
+
+# =============================================================================
+# TRIGGERY — kiedy workflow się uruchamia
+# =============================================================================
+on:
+  push:
+    branches:
+      - main                     # uruchamia się po push/merge do main
+  pull_request:                  # uruchamia się na każdym PR (opened, synchronize, reopened)
+  workflow_dispatch:             # pozwala na ręczne uruchomienie z UI GitHuba
+
+# =============================================================================
+# PERMISSIONS — uprawnienia tokena GITHUB_TOKEN
+# =============================================================================
+permissions:
+  contents: read                 # odczyt kodu z repozytorium (clone/checkout)
+  packages: write                # zapis obrazów do GitHub Container Registry
+
+# =============================================================================
+# JOBY — poszczególne etapy pipeline'u
+# =============================================================================
+jobs:
+
+  # ---------------------------------------------------------------------------
+  # JOB 1: Testy jednostkowe
+  # ---------------------------------------------------------------------------
+  test:
+    name: "Run Go Tests"
+    runs-on: ubuntu-latest       # runner: maszyna wirtualna Ubuntu hostowana przez GitHub
+
+    steps:
+      # Krok 1: Sklonuj repozytorium na runnera
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Krok 2: Zainstaluj Go na runnerze
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      # Krok 3: Pobierz zależności
+      - name: Download dependencies
+        run: go mod download
+
+      # Krok 4: Uruchom testy z flagą -v (verbose) i race detector
+      - name: Run tests
+        run: go test -v -race ./...
+
+  # ---------------------------------------------------------------------------
+  # JOB 2: Budowanie obrazu Docker i push do GHCR
+  # ---------------------------------------------------------------------------
+  docker-build-push:
+    name: "Build & Push to GHCR"
+    runs-on: ubuntu-latest
+    needs: test                  # czeka aż job 'test' zakończy się sukcesem
+
+    # Ten job uruchamia się TYLKO na pushu do main (nie na PR-ach)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      # Krok 1: Sklonuj repozytorium
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Krok 2: Zaloguj się do GitHub Container Registry
+      # Nie potrzebujemy dodatkowych sekretów — GITHUB_TOKEN jest generowany automatycznie!
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Krok 3: Przygotuj tagi i metadane obrazu
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
+
+      # Krok 4: Zbuduj obraz i wypchnij do GHCR
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
