@@ -31,21 +31,21 @@ jobs:
 
     steps:
       # Krok 1: Sklonuj repozytorium na runnera
-      - name: Checkout code
+      - name: A559772 - 1 Checkout code
         uses: actions/checkout@v4
 
       # Krok 2: Zainstaluj Go na runnerze
-      - name: Setup Go
+      - name: A559772 - 2 Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
 
       # Krok 3: Pobierz zależności
-      - name: Download dependencies
+      - name: A559772 - 3. Download dependencies
         run: go mod download
 
       # Krok 4: Uruchom testy z flagą -v (verbose) i race detector
-      - name: Run tests
+      - name: A559772 - 4 Run tests
         run: go test -v -race ./...
 
   # ---------------------------------------------------------------------------
@@ -61,12 +61,12 @@ jobs:
 
     steps:
       # Krok 1: Sklonuj repozytorium
-      - name: Checkout code
+      - name: A559772 - 1 Checkout code
         uses: actions/checkout@v4
 
       # Krok 2: Zaloguj się do GitHub Container Registry
       # Nie potrzebujemy dodatkowych sekretów — GITHUB_TOKEN jest generowany automatycznie!
-      - name: Login to GHCR
+      - name: A559772 - 2 Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -74,7 +74,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # Krok 3: Przygotuj tagi i metadane obrazu
-      - name: Docker metadata
+      - name: A559772 - 3 Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -84,7 +84,7 @@ jobs:
             type=raw,value=latest
 
       # Krok 4: Zbuduj obraz i wypchnij do GHCR
-      - name: Build and push Docker image
+      - name: A559772 - 4 Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
